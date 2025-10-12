@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pridať nový výdavok"
+            android:text="Upraviť výdavok"
             android:textSize="24sp"
             android:textStyle="bold"
             android:gravity="center"
@@ -88,7 +88,7 @@
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Uložiť výdavok"
+            android:text="Uložiť zmeny"
             android:textSize="18sp"
             android:layout_marginBottom="8dp"/>
 

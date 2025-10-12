@@ -1,5 +1,6 @@
 package com.example.project;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -36,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView expensesRecyclerView;
     private Button btnAdd, btnViewMore, btnDaily, btnWeekly, btnMonthly;
     private BarChart expenseChart;
+    private TextView monthlyTotalTextView, dailyAverageTextView, lastMonthTotalTextView, monthlyChangeTextView;
     private List<Expense> allExpenses = new ArrayList<>(); // Store all expenses
     private List<Expense> recentExpenses = new ArrayList<>(); // Show only recent 3
     private ExpenseAdapter adapter; // Deklarácia adapteru
@@ -66,6 +68,10 @@ public class MainActivity extends AppCompatActivity {
         btnWeekly = findViewById(R.id.btnWeekly);
         btnMonthly = findViewById(R.id.btnMonthly);
         expenseChart = findViewById(R.id.expenseChart);
+        monthlyTotalTextView = findViewById(R.id.monthlyTotalTextView);
+        dailyAverageTextView = findViewById(R.id.dailyAverageTextView);
+        lastMonthTotalTextView = findViewById(R.id.lastMonthTotalTextView);
+        monthlyChangeTextView = findViewById(R.id.monthlyChangeTextView);
 
         // Nastav dátum
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
@@ -76,6 +82,21 @@ public class MainActivity extends AppCompatActivity {
         adapter = new ExpenseAdapter(recentExpenses);
         expensesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         expensesRecyclerView.setAdapter(adapter);
+        
+        // Set click listener for editing and deleting expenses
+        adapter.setOnExpenseClickListener(new ExpenseAdapter.OnExpenseClickListener() {
+            @Override
+            public void onExpenseClick(Expense expense) {
+                Intent intent = new Intent(MainActivity.this, EditExpenseActivity.class);
+                intent.putExtra("EXPENSE_TO_EDIT", expense);
+                startActivityForResult(intent, 2); // Use request code 2 for editing
+            }
+            
+            @Override
+            public void onExpenseLongClick(Expense expense) {
+                showDeleteDialog(expense);
+            }
+        });
 
         // Setup chart
         setupChart();
@@ -87,6 +108,9 @@ public class MainActivity extends AppCompatActivity {
         if (allExpenses.isEmpty()) {
             addSampleData();
         }
+        
+        // Update monthly totals
+        updateMonthlyTotals();
 
         // BTN functionality adding new expense.
         btnAdd.setOnClickListener(v -> {
@@ -107,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == 1 && resultCode == RESULT_OK) {
+            // Adding new expense
             double amount = data.getDoubleExtra("AMOUNT", 0);
             String description = data.getStringExtra("DESCRIPTION");
             String category = data.getStringExtra("CATEGORY");
@@ -118,24 +143,74 @@ public class MainActivity extends AppCompatActivity {
             // Pridať do všetkých výdavkov na začiatok
             allExpenses.add(0, newExpense);
             
-            // Pridať do recent výdavkov na začiatok
-            recentExpenses.add(0, newExpense);
-
-            // Obmedziť na maximálne 3 výdavky v hlavnom zozname
-            if (recentExpenses.size() > 3) {
-                recentExpenses = recentExpenses.subList(0, 3);
+            // Obmedziť recent výdavky na maximálne 2 (pred pridaním nového)
+            if (recentExpenses.size() >= 3) {
+                recentExpenses = new ArrayList<>(recentExpenses.subList(0, 2));
             }
+            
+            // Pridať nový výdavok na začiatok recent zoznamu
+            recentExpenses.add(0, newExpense);
 
             adapter.notifyDataSetChanged(); // Teraz už adapter existuje
             checkViewMoreButton();
             updateChart(); // Update chart when new expense is added
+            updateMonthlyTotals(); // Update monthly totals
+        } else if (requestCode == 2 && resultCode == RESULT_OK) {
+            // Editing existing expense
+            Expense editedExpense = (Expense) data.getSerializableExtra("EDITED_EXPENSE");
+            if (editedExpense != null) {
+                // Update in allExpenses
+                for (int i = 0; i < allExpenses.size(); i++) {
+                    if (allExpenses.get(i).getId().equals(editedExpense.getId())) {
+                        allExpenses.set(i, editedExpense);
+                        break;
+                    }
+                }
+                
+                // Update in recentExpenses
+                for (int i = 0; i < recentExpenses.size(); i++) {
+                    if (recentExpenses.get(i).getId().equals(editedExpense.getId())) {
+                        recentExpenses.set(i, editedExpense);
+                        break;
+                    }
+                }
+                
+                adapter.notifyDataSetChanged();
+                updateChart();
+                updateMonthlyTotals();
+            }
         }
     }
 
     private void checkViewMoreButton() {
-        if (allExpenses.size() >= 3) {
+        if (allExpenses.size() > 3) {
             btnViewMore.setVisibility(View.VISIBLE);
+        } else {
+            btnViewMore.setVisibility(View.GONE);
         }
+    }
+
+    private void showDeleteDialog(Expense expense) {
+        new AlertDialog.Builder(this)
+                .setTitle("Zmazať výdavok")
+                .setMessage("Naozaj chcete zmazať výdavok '" + expense.getDescription() + "'?")
+                .setPositiveButton("Áno", (dialog, which) -> deleteExpense(expense))
+                .setNegativeButton("Nie", null)
+                .show();
+    }
+
+    private void deleteExpense(Expense expense) {
+        // Remove from allExpenses
+        allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+        
+        // Remove from recentExpenses
+        recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+        
+        // Update UI
+        adapter.notifyDataSetChanged();
+        checkViewMoreButton();
+        updateChart();
+        updateMonthlyTotals();
     }
 
     private void setupChart() {
@@ -424,5 +499,64 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
         updateChart();
         checkViewMoreButton();
+        updateMonthlyTotals();
+    }
+
+    private void updateMonthlyTotals() {
+        Calendar calendar = Calendar.getInstance();
+        int currentMonth = calendar.get(Calendar.MONTH);
+        int currentYear = calendar.get(Calendar.YEAR);
+        
+        double monthlyTotal = 0;
+        int daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH);
+        
+        for (Expense expense : allExpenses) {
+            Calendar expenseCalendar = Calendar.getInstance();
+            expenseCalendar.setTime(expense.getDate());
+            
+            if (expenseCalendar.get(Calendar.MONTH) == currentMonth && 
+                expenseCalendar.get(Calendar.YEAR) == currentYear) {
+                monthlyTotal += expense.getAmount();
+            }
+        }
+        
+        monthlyTotalTextView.setText(String.format("%.2f €", monthlyTotal));
+        
+        // Calculate daily average
+        double dailyAverage = monthlyTotal / daysInMonth;
+        dailyAverageTextView.setText(String.format("%.2f €", dailyAverage));
+        
+        // Calculate last month total
+        Calendar lastMonth = Calendar.getInstance();
+        lastMonth.add(Calendar.MONTH, -1);
+        int lastMonthNum = lastMonth.get(Calendar.MONTH);
+        int lastMonthYear = lastMonth.get(Calendar.YEAR);
+        
+        double lastMonthTotal = 0;
+        for (Expense expense : allExpenses) {
+            Calendar expenseCalendar = Calendar.getInstance();
+            expenseCalendar.setTime(expense.getDate());
+            
+            if (expenseCalendar.get(Calendar.MONTH) == lastMonthNum && 
+                expenseCalendar.get(Calendar.YEAR) == lastMonthYear) {
+                lastMonthTotal += expense.getAmount();
+            }
+        }
+        
+        lastMonthTotalTextView.setText(String.format("%.2f €", lastMonthTotal));
+        
+        // Calculate change
+        double change = monthlyTotal - lastMonthTotal;
+        String changeText = String.format("%.2f €", Math.abs(change));
+        if (change > 0) {
+            changeText = "+" + changeText;
+            monthlyChangeTextView.setTextColor(Color.parseColor("#F44336")); // Red for increase
+        } else if (change < 0) {
+            changeText = "-" + changeText;
+            monthlyChangeTextView.setTextColor(Color.parseColor("#4CAF50")); // Green for decrease
+        } else {
+            monthlyChangeTextView.setTextColor(Color.parseColor("#666666")); // Gray for no change
+        }
+        monthlyChangeTextView.setText(changeText);
     }
 }

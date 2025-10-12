@@ -1,7 +1,5 @@
 package com.example.project;
 
-
-
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -16,12 +14,13 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-public class AddExpenseActivity extends AppCompatActivity {
+public class EditExpenseActivity extends AppCompatActivity {
 
     private EditText etAmount, etDescription;
     private Spinner spinnerCategory;
     private Button btnSave, btnCancel, btnSelectDate;
     private Calendar selectedDate;
+    private Expense expenseToEdit;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +31,15 @@ public class AddExpenseActivity extends AppCompatActivity {
             getSupportActionBar().hide();
         }
         
-        setContentView(R.layout.activity_add_expense);
+        setContentView(R.layout.activity_edit_expense);
+
+        // Get expense from intent
+        expenseToEdit = (Expense) getIntent().getSerializableExtra("EXPENSE_TO_EDIT");
+        if (expenseToEdit == null) {
+            Toast.makeText(this, "Chyba: Výdavok nebol nájdený", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
 
         // Nájdeme elementy
         etAmount = findViewById(R.id.etAmount);
@@ -42,12 +49,23 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnCancel = findViewById(R.id.btnCancel);
         btnSelectDate = findViewById(R.id.btnSelectDate);
         
-        // Nastavíme dnešný dátum ako predvolený
+        // Nastavíme aktuálne hodnoty
+        etAmount.setText(String.valueOf(expenseToEdit.getAmount()));
+        etDescription.setText(expenseToEdit.getDescription());
+        
         selectedDate = Calendar.getInstance();
+        selectedDate.setTime(expenseToEdit.getDate());
         updateDateButtonText();
 
         // Nastavíme kategórie pre Spinner
         setupCategorySpinner();
+
+        // Nastavíme aktuálnu kategóriu
+        List<String> categories = Arrays.asList("Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie", "Zdravie", "Jedlo", "Iné");
+        int categoryIndex = categories.indexOf(expenseToEdit.getCategory());
+        if (categoryIndex >= 0) {
+            spinnerCategory.setSelection(categoryIndex);
+        }
 
         // Nastavíme klik listenery
         btnSave.setOnClickListener(v -> saveExpense());
@@ -95,24 +113,27 @@ public class AddExpenseActivity extends AppCompatActivity {
         String category = spinnerCategory.getSelectedItem().toString();
 
         if (amountText.isEmpty() || description.isEmpty()) {
-            Toast.makeText(this, "Prosim vyplnte všetky polia ", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Prosím vyplňte všetky polia", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        double amount = Double.parseDouble(amountText);
-        Date selectedDateObj = selectedDate.getTime();
+        try {
+            double amount = Double.parseDouble(amountText);
+            Date selectedDateObj = selectedDate.getTime();
 
-        // Vytvoriť nový výdavok
-        Expense newExpense = new Expense(amount, description, category, selectedDateObj);
+            // Aktualizujeme výdavok
+            expenseToEdit.setAmount(amount);
+            expenseToEdit.setDescription(description);
+            expenseToEdit.setCategory(category);
+            expenseToEdit.setDate(selectedDateObj);
 
-        // Poslať výdavok späť do MainActivity
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("AMOUNT", amount);
-        resultIntent.putExtra("DESCRIPTION", description);
-        resultIntent.putExtra("CATEGORY", category);
-        resultIntent.putExtra("DATE", selectedDateObj.getTime()); // uložiť ako timestamp
-
-        setResult(RESULT_OK, resultIntent);
-        finish();
+            // Poslať aktualizovaný výdavok späť
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra("EDITED_EXPENSE", expenseToEdit);
+            setResult(RESULT_OK, resultIntent);
+            finish();
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Neplatná suma", Toast.LENGTH_SHORT).show();
+        }
     }
 }
