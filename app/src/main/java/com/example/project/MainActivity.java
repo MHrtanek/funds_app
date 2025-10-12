@@ -14,11 +14,11 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.data.BarData;
-import com.github.mikephil.charting.data.BarDataSet;
-import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import java.text.SimpleDateFormat;
@@ -35,8 +35,8 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     private RecyclerView expensesRecyclerView;
-    private Button btnAdd, btnViewMore, btnDaily, btnWeekly, btnMonthly;
-    private BarChart expenseChart;
+    private Button btnAdd, btnViewMore, btnDaily, btnYearly, btnMonthly;
+    private LineChart expenseChart;
     private TextView monthlyTotalTextView, dailyAverageTextView, lastMonthTotalTextView, monthlyChangeTextView;
     private List<Expense> allExpenses = new ArrayList<>(); // Store all expenses
     private List<Expense> recentExpenses = new ArrayList<>(); // Show only recent 3
@@ -65,8 +65,8 @@ public class MainActivity extends AppCompatActivity {
         btnAdd = findViewById(R.id.btnAdd);
         btnViewMore = findViewById(R.id.btnViewMore);
         btnDaily = findViewById(R.id.btnDaily);
-        btnWeekly = findViewById(R.id.btnWeekly);
         btnMonthly = findViewById(R.id.btnMonthly);
+        btnYearly = findViewById(R.id.btnYearly);
         expenseChart = findViewById(R.id.expenseChart);
         monthlyTotalTextView = findViewById(R.id.monthlyTotalTextView);
         dailyAverageTextView = findViewById(R.id.dailyAverageTextView);
@@ -217,8 +217,6 @@ public class MainActivity extends AppCompatActivity {
         try {
             expenseChart.getDescription().setEnabled(false);
             expenseChart.setDrawGridBackground(false);
-            expenseChart.setDrawBarShadow(false);
-            expenseChart.setDrawValueAboveBar(true);
             expenseChart.setPinchZoom(false);
             expenseChart.setScaleEnabled(false);
             expenseChart.getLegend().setEnabled(false);
@@ -266,14 +264,14 @@ public class MainActivity extends AppCompatActivity {
             updateChart();
         });
 
-        btnWeekly.setOnClickListener(v -> {
-            currentFilter = "Týždeň";
+        btnMonthly.setOnClickListener(v -> {
+            currentFilter = "Mesiac";
             updateFilterButtonStates();
             updateChart();
         });
 
-        btnMonthly.setOnClickListener(v -> {
-            currentFilter = "Mesiac";
+        btnYearly.setOnClickListener(v -> {
+            currentFilter = "Rok";
             updateFilterButtonStates();
             updateChart();
         });
@@ -282,59 +280,64 @@ public class MainActivity extends AppCompatActivity {
     private void updateFilterButtonStates() {
         // Reset all buttons to default style
         btnDaily.setBackgroundColor(Color.TRANSPARENT);
-        btnWeekly.setBackgroundColor(Color.TRANSPARENT);
         btnMonthly.setBackgroundColor(Color.TRANSPARENT);
+        btnYearly.setBackgroundColor(Color.TRANSPARENT);
 
         // Highlight selected button
         switch (currentFilter) {
             case "Deň":
                 btnDaily.setBackgroundColor(Color.parseColor("#E3F2FD"));
                 break;
-            case "Týždeň":
-                btnWeekly.setBackgroundColor(Color.parseColor("#E3F2FD"));
-                break;
             case "Mesiac":
                 btnMonthly.setBackgroundColor(Color.parseColor("#E3F2FD"));
+                break;
+            case "Rok":
+                btnYearly.setBackgroundColor(Color.parseColor("#E3F2FD"));
                 break;
         }
     }
 
     private void updateChart() {
         try {
-            List<BarEntry> entries = new ArrayList<>();
+            List<Entry> entries = new ArrayList<>();
             List<String> labels = new ArrayList<>();
 
             Map<String, Float> aggregatedData = getAggregatedData();
 
             int index = 0;
             for (Map.Entry<String, Float> entry : aggregatedData.entrySet()) {
-                entries.add(new BarEntry(index, entry.getValue()));
+                entries.add(new Entry(index, entry.getValue()));
                 labels.add(entry.getKey());
                 index++;
             }
 
             if (entries.isEmpty()) {
                 // Add a dummy entry to show something
-                entries.add(new BarEntry(0, 0));
+                entries.add(new Entry(0, 0));
                 labels.add("Žiadne dáta");
             }
 
-            BarDataSet dataSet = new BarDataSet(entries, "Výdavky");
+            LineDataSet dataSet = new LineDataSet(entries, "Výdavky");
             dataSet.setColor(Color.parseColor("#4CAF50")); // Green color for better visibility
             dataSet.setValueTextColor(Color.BLACK);
             dataSet.setValueTextSize(12f);
-            dataSet.setValueTextColor(Color.BLACK);
+            dataSet.setLineWidth(3f);
+            dataSet.setCircleRadius(6f);
+            dataSet.setCircleColor(Color.parseColor("#4CAF50"));
+            dataSet.setFillColor(Color.parseColor("#4CAF50"));
+            dataSet.setFillAlpha(100);
+            dataSet.setDrawFilled(true); // This makes it an area chart
+            dataSet.setDrawValues(true);
 
-            BarData barData = new BarData(dataSet);
-            barData.setBarWidth(0.8f);
-            barData.setValueFormatter(new ValueFormatter() {
+            LineData lineData = new LineData(dataSet);
+            lineData.setValueFormatter(new ValueFormatter() {
                 @Override
                 public String getFormattedValue(float value) {
                     return String.format("%.0f€", value);
                 }
             });
 
-            expenseChart.setData(barData);
+            expenseChart.setData(lineData);
             expenseChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
             expenseChart.invalidate();
         } catch (Exception e) {
@@ -375,25 +378,39 @@ public class MainActivity extends AppCompatActivity {
                     return sdf.format(expense.getDate());
                 }
                 break;
-            case "Týždeň":
-                // Show last 4 weeks
-                if (isWithinWeeks(expense.getDate(), currentDate, 4)) {
-                    Calendar weekCalendar = Calendar.getInstance();
-                    weekCalendar.setTime(expense.getDate());
-                    weekCalendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
-                    SimpleDateFormat sdf = new SimpleDateFormat("dd/MM", Locale.getDefault());
-                    return "Týždeň " + sdf.format(weekCalendar.getTime());
+            case "Mesiac":
+                // Show last 12 months with Slovak month names
+                if (isWithinMonths(expense.getDate(), currentDate, 12)) {
+                    return getSlovakMonthName(expenseCalendar.get(Calendar.MONTH));
                 }
                 break;
-            case "Mesiac":
-                // Show last 6 months
-                if (isWithinMonths(expense.getDate(), currentDate, 6)) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("MM/yyyy", Locale.getDefault());
-                    return sdf.format(expense.getDate());
+            case "Rok":
+                // Show last 5 years
+                if (isWithinYears(expense.getDate(), currentDate, 5)) {
+                    return String.valueOf(expenseCalendar.get(Calendar.YEAR));
                 }
                 break;
         }
         return null;
+    }
+
+    private String getSlovakMonthName(int month) {
+        String[] monthNames = {
+            "Janu.", "Feb.", "Mar.", "Apr.", "Máj", "Jún",
+            "Júl", "Aug.", "Sept.", "Okt.", "Nov.", "Dec."
+        };
+        return monthNames[month];
+    }
+
+    private boolean isWithinYears(Date expenseDate, Date currentDate, int years) {
+        Calendar expenseCalendar = Calendar.getInstance();
+        expenseCalendar.setTime(expenseDate);
+        
+        Calendar currentCalendar = Calendar.getInstance();
+        currentCalendar.setTime(currentDate);
+        
+        int yearsDiff = currentCalendar.get(Calendar.YEAR) - expenseCalendar.get(Calendar.YEAR);
+        return yearsDiff >= 0 && yearsDiff < years;
     }
 
     private void fillMissingPeriods(Map<String, Float> data, Date currentDate) {
@@ -402,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
 
         switch (currentFilter) {
             case "Deň":
-                for (int i = 6; i >= 0; i--) {
+                for (int i = 0; i <= 6; i++) {
                     Calendar dayCalendar = Calendar.getInstance();
                     dayCalendar.setTime(currentDate);
                     dayCalendar.add(Calendar.DAY_OF_MONTH, -i);
@@ -411,24 +428,21 @@ public class MainActivity extends AppCompatActivity {
                     data.putIfAbsent(key, 0f);
                 }
                 break;
-            case "Týždeň":
-                for (int i = 3; i >= 0; i--) {
-                    Calendar weekCalendar = Calendar.getInstance();
-                    weekCalendar.setTime(currentDate);
-                    weekCalendar.add(Calendar.WEEK_OF_YEAR, -i);
-                    weekCalendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
-                    SimpleDateFormat sdf = new SimpleDateFormat("dd/MM", Locale.getDefault());
-                    String key = "Týždeň " + sdf.format(weekCalendar.getTime());
-                    data.putIfAbsent(key, 0f);
-                }
-                break;
             case "Mesiac":
-                for (int i = 5; i >= 0; i--) {
+                for (int i = 0; i <= 11; i++) {
                     Calendar monthCalendar = Calendar.getInstance();
                     monthCalendar.setTime(currentDate);
                     monthCalendar.add(Calendar.MONTH, -i);
-                    SimpleDateFormat sdf = new SimpleDateFormat("MM/yyyy", Locale.getDefault());
-                    String key = sdf.format(monthCalendar.getTime());
+                    String key = getSlovakMonthName(monthCalendar.get(Calendar.MONTH));
+                    data.putIfAbsent(key, 0f);
+                }
+                break;
+            case "Rok":
+                for (int i = 0; i <= 4; i++) {
+                    Calendar yearCalendar = Calendar.getInstance();
+                    yearCalendar.setTime(currentDate);
+                    yearCalendar.add(Calendar.YEAR, -i);
+                    String key = String.valueOf(yearCalendar.get(Calendar.YEAR));
                     data.putIfAbsent(key, 0f);
                 }
                 break;
