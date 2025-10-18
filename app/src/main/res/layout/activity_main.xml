@@ -36,6 +36,7 @@
             android:text="@string/current_date"
             android:textSize="24sp"
             android:textStyle="bold"
+            android:textColor="#000000"
             android:layout_marginStart="8dp" />
 
         <!-- BTN for adding new item -->
@@ -47,7 +48,8 @@
             android:textSize="16sp"
             android:layout_marginEnd="8dp"
             android:minWidth="48dp"
-            android:minHeight="48dp" />
+            android:minHeight="48dp"
+            style="@style/Widget.Material3.Button.OutlinedButton.ViewMore" />
 
     </LinearLayout>
 
@@ -73,7 +75,7 @@
             android:text="Deň"
             android:textSize="16sp"
             android:textStyle="bold"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+            style="@style/Widget.Material3.Button.OutlinedButton.Daily" />
 
         <Button
             android:id="@+id/btnMonthly"
@@ -85,7 +87,7 @@
             android:text="Mesiac"
             android:textSize="16sp"
             android:textStyle="bold"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+            style="@style/Widget.Material3.Button.OutlinedButton.Monthly" />
 
         <Button
             android:id="@+id/btnYearly"
@@ -96,7 +98,7 @@
             android:text="Rok"
             android:textSize="16sp"
             android:textStyle="bold"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+            style="@style/Widget.Material3.Button.OutlinedButton.Yearly" />
 
     </LinearLayout>
 
@@ -137,7 +139,7 @@
                 android:layout_height="wrap_content"
                 android:text="Tento mesiac"
                 android:textSize="12sp"
-                android:textColor="#666666" />
+                android:textColor="#000000" />
 
             <TextView
                 android:id="@+id/monthlyTotalTextView"
@@ -164,7 +166,7 @@
                 android:layout_height="wrap_content"
                 android:text="Priemer/den"
                 android:textSize="12sp"
-                android:textColor="#666666" />
+                android:textColor="#000000" />
 
             <TextView
                 android:id="@+id/dailyAverageTextView"
@@ -205,7 +207,7 @@
                 android:layout_height="wrap_content"
                 android:text="Minulý mesiac"
                 android:textSize="12sp"
-                android:textColor="#666666" />
+                android:textColor="#000000" />
 
             <TextView
                 android:id="@+id/lastMonthTotalTextView"
@@ -232,7 +234,7 @@
                 android:layout_height="wrap_content"
                 android:text="Zmena"
                 android:textSize="12sp"
-                android:textColor="#666666" />
+                android:textColor="#000000" />
 
             <TextView
                 android:id="@+id/monthlyChangeTextView"
@@ -255,6 +257,7 @@
         android:text="Posledné výdavky"
         android:textSize="18sp"
         android:textStyle="bold"
+        android:textColor="#000000"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/monthlyComparisonLayout"
         app:layout_constraintStart_toStartOf="parent"
@@ -281,10 +284,14 @@
         android:text="@string/view_more"
         android:visibility="gone"
         android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:textSize="14sp"
+        android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/expensesRecyclerView"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintWidth_percent="0.9" />
+        app:layout_constraintWidth_percent="0.9"
+        style="@style/Widget.Material3.Button.OutlinedButton.ViewMore" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

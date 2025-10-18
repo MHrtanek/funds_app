@@ -20,7 +20,7 @@ public class AddExpenseActivity extends AppCompatActivity {
 
     private EditText etAmount, etDescription;
     private Spinner spinnerCategory;
-    private Button btnSave, btnCancel, btnSelectDate;
+    private Button btnSave, btnCancel, btnSelectDate, btnManageCategories;
     private Calendar selectedDate;
 
     @Override
@@ -41,6 +41,7 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btnSave);
         btnCancel = findViewById(R.id.btnCancel);
         btnSelectDate = findViewById(R.id.btnSelectDate);
+        btnManageCategories = findViewById(R.id.btnManageCategories);
         
         // Nastavíme dnešný dátum ako predvolený
         selectedDate = Calendar.getInstance();
@@ -53,13 +54,12 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> saveExpense());
         btnCancel.setOnClickListener(v -> finish());
         btnSelectDate.setOnClickListener(v -> showDatePicker());
+        btnManageCategories.setOnClickListener(v -> openCategoryManagement());
     }
 
     private void setupCategorySpinner() {
-        List<String> categories = Arrays.asList(
-                "Potraviny", "Bývanie", "Doprava", "Zábava",
-                "Oblečenie", "Zdravie", "Jedlo", "Iné"
-        );
+        DataManager dataManager = new DataManager(this);
+        List<String> categories = dataManager.loadCategories();
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_spinner_item, categories
@@ -87,6 +87,21 @@ public class AddExpenseActivity extends AppCompatActivity {
                 selectedDate.get(Calendar.DAY_OF_MONTH)
         );
         datePickerDialog.show();
+    }
+
+    private void openCategoryManagement() {
+        Intent intent = new Intent(this, CategoryManagementActivity.class);
+        startActivityForResult(intent, 100); // Použijeme requestCode 100 pre správu kategórií
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // Ak sa vrátili z CategoryManagementActivity, obnovíme kategórie
+        if (requestCode == 100 && resultCode == RESULT_OK) {
+            setupCategorySpinner(); // Obnovíme spinner s novými kategóriami
+        }
     }
 
     private void saveExpense() {

@@ -91,10 +91,13 @@
         android:layout_height="wrap_content"
         android:text="Späť"
         android:layout_marginTop="8dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/statisticsLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintWidth_percent="0.9" />
+        app:layout_constraintWidth_percent="0.9"
+        style="@style/Widget.Material3.Button.OutlinedButton.ViewMore" />
 
     <Button
         android:id="@+id/btnExport"
@@ -102,10 +105,13 @@
         android:layout_height="wrap_content"
         android:text="Export CSV"
         android:layout_marginTop="8dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/btnBack"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintWidth_percent="0.9" />
+        app:layout_constraintWidth_percent="0.9"
+        style="@style/Widget.Material3.Button.OutlinedButton.ViewMore" />
 
     <!-- Search and Filter Section -->
     <EditText

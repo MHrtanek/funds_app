@@ -9,6 +9,11 @@ public class Expense implements Serializable {
     private String category;
     private Date date;
 
+    // Default constructor for JSON deserialization
+    public Expense() {
+        this.id = java.util.UUID.randomUUID().toString();
+    }
+
     public Expense(double amount, String description, String category, Date date) {
         this.id = java.util.UUID.randomUUID().toString();
         this.amount = amount;
@@ -25,6 +30,7 @@ public class Expense implements Serializable {
     public Date getDate() { return date; }
     
     // Settery pre editovanie
+    public void setId(String id) { this.id = id; }
     public void setAmount(double amount) { this.amount = amount; }
     public void setDescription(String description) { this.description = description; }
     public void setCategory(String category) { this.category = category; }

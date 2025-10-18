@@ -103,11 +103,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Setup filter buttons
         setupFilterButtons();
-
-        // Add some sample data for testing if no expenses exist
-        if (allExpenses.isEmpty()) {
-            addSampleData();
-        }
         
         // Update monthly totals
         updateMonthlyTotals();
@@ -183,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkViewMoreButton() {
-        if (allExpenses.size() > 3) {
+        if (allExpenses.size() > 2) {
             btnViewMore.setVisibility(View.VISIBLE);
         } else {
             btnViewMore.setVisibility(View.GONE);
@@ -234,6 +229,9 @@ public class MainActivity extends AppCompatActivity {
             xAxis.setTextColor(Color.BLACK);
             xAxis.setTextSize(12f);
             xAxis.setAxisLineColor(Color.BLACK);
+            
+            // Add extra padding at bottom for month labels
+            expenseChart.setExtraOffsets(0f, 0f, 0f, 20f);
 
             // Setup Y-axis
             expenseChart.getAxisLeft().setDrawGridLines(true);
@@ -283,17 +281,30 @@ public class MainActivity extends AppCompatActivity {
         btnMonthly.setBackgroundColor(Color.TRANSPARENT);
         btnYearly.setBackgroundColor(Color.TRANSPARENT);
 
-        // Highlight selected button
+        // Highlight selected button with filter-specific color
         switch (currentFilter) {
             case "Deň":
-                btnDaily.setBackgroundColor(Color.parseColor("#E3F2FD"));
+                btnDaily.setBackgroundColor(Color.parseColor("#E8F5E8")); // Light green
                 break;
             case "Mesiac":
-                btnMonthly.setBackgroundColor(Color.parseColor("#E3F2FD"));
+                btnMonthly.setBackgroundColor(Color.parseColor("#FFF3E0")); // Light orange
                 break;
             case "Rok":
-                btnYearly.setBackgroundColor(Color.parseColor("#E3F2FD"));
+                btnYearly.setBackgroundColor(Color.parseColor("#E3F2FD")); // Light blue
                 break;
+        }
+    }
+
+    private String getChartColorForFilter() {
+        switch (currentFilter) {
+            case "Deň":
+                return "#4CAF50"; // Green
+            case "Mesiac":
+                return "#FF9800"; // Orange
+            case "Rok":
+                return "#2196F3"; // Blue
+            default:
+                return "#4CAF50"; // Default green
         }
     }
 
@@ -318,13 +329,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
             LineDataSet dataSet = new LineDataSet(entries, "Výdavky");
-            dataSet.setColor(Color.parseColor("#4CAF50")); // Green color for better visibility
+            String chartColor = getChartColorForFilter();
+            dataSet.setColor(Color.parseColor(chartColor));
             dataSet.setValueTextColor(Color.BLACK);
             dataSet.setValueTextSize(12f);
             dataSet.setLineWidth(3f);
             dataSet.setCircleRadius(6f);
-            dataSet.setCircleColor(Color.parseColor("#4CAF50"));
-            dataSet.setFillColor(Color.parseColor("#4CAF50"));
+            dataSet.setCircleColor(Color.parseColor(chartColor));
+            dataSet.setFillColor(Color.parseColor(chartColor));
             dataSet.setFillAlpha(100);
             dataSet.setDrawFilled(true); // This makes it an area chart
             dataSet.setDrawValues(true);
@@ -339,6 +351,11 @@ public class MainActivity extends AppCompatActivity {
 
             expenseChart.setData(lineData);
             expenseChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+            
+            // Set Y-axis to start from 0 and not go negative
+            expenseChart.getAxisLeft().setAxisMinimum(0f);
+            expenseChart.getAxisRight().setAxisMinimum(0f);
+            
             expenseChart.invalidate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -372,21 +389,21 @@ public class MainActivity extends AppCompatActivity {
 
         switch (currentFilter) {
             case "Deň":
-                // Show last 7 days
-                if (isWithinDays(expense.getDate(), currentDate, 7)) {
+                // Show last 4 days
+                if (isWithinDays(expense.getDate(), currentDate, 4)) {
                     SimpleDateFormat sdf = new SimpleDateFormat("dd/MM", Locale.getDefault());
                     return sdf.format(expense.getDate());
                 }
                 break;
             case "Mesiac":
-                // Show last 12 months with Slovak month names
-                if (isWithinMonths(expense.getDate(), currentDate, 12)) {
+                // Show last 4 months with Slovak month names
+                if (isWithinMonths(expense.getDate(), currentDate, 4)) {
                     return getSlovakMonthName(expenseCalendar.get(Calendar.MONTH));
                 }
                 break;
             case "Rok":
-                // Show last 5 years
-                if (isWithinYears(expense.getDate(), currentDate, 5)) {
+                // Show last 4 years
+                if (isWithinYears(expense.getDate(), currentDate, 4)) {
                     return String.valueOf(expenseCalendar.get(Calendar.YEAR));
                 }
                 break;
@@ -396,8 +413,8 @@ public class MainActivity extends AppCompatActivity {
 
     private String getSlovakMonthName(int month) {
         String[] monthNames = {
-            "Janu.", "Feb.", "Mar.", "Apr.", "Máj", "Jún",
-            "Júl", "Aug.", "Sept.", "Okt.", "Nov.", "Dec."
+            "Jan", "Feb", "Mar", "Apr", "Máj", "Jún",
+            "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"
         };
         return monthNames[month];
     }
@@ -419,7 +436,7 @@ public class MainActivity extends AppCompatActivity {
 
         switch (currentFilter) {
             case "Deň":
-                for (int i = 0; i <= 6; i++) {
+                for (int i = 0; i <= 3; i++) {
                     Calendar dayCalendar = Calendar.getInstance();
                     dayCalendar.setTime(currentDate);
                     dayCalendar.add(Calendar.DAY_OF_MONTH, -i);
@@ -429,7 +446,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case "Mesiac":
-                for (int i = 0; i <= 11; i++) {
+                for (int i = 0; i <= 3; i++) {
                     Calendar monthCalendar = Calendar.getInstance();
                     monthCalendar.setTime(currentDate);
                     monthCalendar.add(Calendar.MONTH, -i);
@@ -438,7 +455,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case "Rok":
-                for (int i = 0; i <= 4; i++) {
+                for (int i = 0; i <= 3; i++) {
                     Calendar yearCalendar = Calendar.getInstance();
                     yearCalendar.setTime(currentDate);
                     yearCalendar.add(Calendar.YEAR, -i);
@@ -482,39 +499,6 @@ public class MainActivity extends AppCompatActivity {
         return expenseDate.after(currentCalendar.getTime()) || expenseDate.equals(currentCalendar.getTime());
     }
 
-    private void addSampleData() {
-        // Add some sample expenses for testing the chart
-        Calendar calendar = Calendar.getInstance();
-        
-        // Today
-        Expense expense1 = new Expense(25.50, "Test expense today", "Potraviny", new Date());
-        allExpenses.add(expense1);
-        recentExpenses.add(expense1);
-        
-        // Yesterday
-        calendar.setTime(new Date());
-        calendar.add(Calendar.DAY_OF_MONTH, -1);
-        Expense expense2 = new Expense(15.75, "Test expense yesterday", "Doprava", calendar.getTime());
-        allExpenses.add(expense2);
-        recentExpenses.add(expense2);
-        
-        // 2 days ago
-        calendar.add(Calendar.DAY_OF_MONTH, -1);
-        Expense expense3 = new Expense(45.00, "Test expense 2 days ago", "Bývanie", calendar.getTime());
-        allExpenses.add(expense3);
-        recentExpenses.add(expense3);
-        
-        // 3 days ago
-        calendar.add(Calendar.DAY_OF_MONTH, -1);
-        Expense expense4 = new Expense(30.25, "Test expense 3 days ago", "Zábava", calendar.getTime());
-        allExpenses.add(expense4);
-        
-        // Update UI
-        adapter.notifyDataSetChanged();
-        updateChart();
-        checkViewMoreButton();
-        updateMonthlyTotals();
-    }
 
     private void updateMonthlyTotals() {
         Calendar calendar = Calendar.getInstance();
