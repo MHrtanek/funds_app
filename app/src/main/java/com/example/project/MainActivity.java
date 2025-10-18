@@ -42,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private List<Expense> recentExpenses = new ArrayList<>(); // Show only recent 3
     private ExpenseAdapter adapter; // Deklarácia adapteru
     private String currentFilter = "Deň"; // Default filter
+    private DataManager dataManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +55,13 @@ public class MainActivity extends AppCompatActivity {
         
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        
+        // Initialize DataManager
+        dataManager = new DataManager(this);
+        
+        // Load expenses from storage at startup
+        allExpenses = dataManager.loadExpenses();
+        
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right + 16, systemBars.bottom);
@@ -79,24 +87,7 @@ public class MainActivity extends AppCompatActivity {
         dateTextView.setText(currentDate);
 
         // INICIALIZUJ ADAPTER A RECYCLERVIEW - PRIDAJ TOTO
-        adapter = new ExpenseAdapter(recentExpenses);
         expensesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        expensesRecyclerView.setAdapter(adapter);
-        
-        // Set click listener for editing and deleting expenses
-        adapter.setOnExpenseClickListener(new ExpenseAdapter.OnExpenseClickListener() {
-            @Override
-            public void onExpenseClick(Expense expense) {
-                Intent intent = new Intent(MainActivity.this, EditExpenseActivity.class);
-                intent.putExtra("EXPENSE_TO_EDIT", expense);
-                startActivityForResult(intent, 2); // Use request code 2 for editing
-            }
-            
-            @Override
-            public void onExpenseLongClick(Expense expense) {
-                showDeleteDialog(expense);
-            }
-        });
 
         // Setup chart
         setupChart();
@@ -116,9 +107,30 @@ public class MainActivity extends AppCompatActivity {
         // BTN view more
         btnViewMore.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, AllExpensesActivity.class);
-            intent.putExtra("ALL_EXPENSES", allExpenses.toArray(new Expense[0]));
             startActivity(intent);
         });
+        
+        // Load expenses from storage only if empty
+        if (allExpenses.isEmpty()) {
+            loadExpensesFromStorage();
+        }
+        
+        // Initialize UI after loading data
+        updateRecentExpenses();
+        checkViewMoreButton();
+        updateChart();
+        updateMonthlyTotals();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload data when returning from other activities
+        allExpenses = dataManager.loadExpenses();
+        updateRecentExpenses();
+        checkViewMoreButton();
+        updateChart();
+        updateMonthlyTotals();
     }
 
     @Override
@@ -126,30 +138,8 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == 1 && resultCode == RESULT_OK) {
-            // Adding new expense
-            double amount = data.getDoubleExtra("AMOUNT", 0);
-            String description = data.getStringExtra("DESCRIPTION");
-            String category = data.getStringExtra("CATEGORY");
-            long dateTimestamp = data.getLongExtra("DATE", System.currentTimeMillis());
-
-            Date date = new Date(dateTimestamp);
-            Expense newExpense = new Expense(amount, description, category, date);
-
-            // Pridať do všetkých výdavkov na začiatok
-            allExpenses.add(0, newExpense);
-            
-            // Obmedziť recent výdavky na maximálne 2 (pred pridaním nového)
-            if (recentExpenses.size() >= 3) {
-                recentExpenses = new ArrayList<>(recentExpenses.subList(0, 2));
-            }
-            
-            // Pridať nový výdavok na začiatok recent zoznamu
-            recentExpenses.add(0, newExpense);
-
-            adapter.notifyDataSetChanged(); // Teraz už adapter existuje
-            checkViewMoreButton();
-            updateChart(); // Update chart when new expense is added
-            updateMonthlyTotals(); // Update monthly totals
+            // Adding new expense - reload from storage
+            loadExpensesFromStorage();
         } else if (requestCode == 2 && resultCode == RESULT_OK) {
             // Editing existing expense
             Expense editedExpense = (Expense) data.getSerializableExtra("EDITED_EXPENSE");
@@ -161,6 +151,9 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                 }
+                
+                // Save to DataManager
+                dataManager.updateExpense(editedExpense);
                 
                 // Update in recentExpenses
                 for (int i = 0; i < recentExpenses.size(); i++) {
@@ -177,11 +170,59 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void checkViewMoreButton() {
-        if (allExpenses.size() > 2) {
-            btnViewMore.setVisibility(View.VISIBLE);
+    private void loadExpensesFromStorage() {
+        allExpenses = dataManager.loadExpenses();
+        updateRecentExpenses();
+        checkViewMoreButton();
+        updateChart();
+        updateMonthlyTotals();
+    }
+
+    private void updateRecentExpenses() {
+        // Safety check
+        if (allExpenses == null) {
+            allExpenses = new ArrayList<>();
+        }
+        
+        // Sort all expenses by date (newest first)
+        allExpenses.sort((e1, e2) -> e2.getDate().compareTo(e1.getDate()));
+        
+        // Take only the first 3 expenses
+        recentExpenses.clear();
+        int maxRecent = Math.min(3, allExpenses.size());
+        for (int i = 0; i < maxRecent; i++) {
+            recentExpenses.add(allExpenses.get(i));
+        }
+        
+        // Initialize or update adapter
+        if (adapter == null) {
+            adapter = new ExpenseAdapter(recentExpenses);
+            adapter.setOnExpenseClickListener(new ExpenseAdapter.OnExpenseClickListener() {
+                @Override
+                public void onExpenseClick(Expense expense) {
+                    Intent intent = new Intent(MainActivity.this, EditExpenseActivity.class);
+                    intent.putExtra("EXPENSE_TO_EDIT", expense);
+                    startActivityForResult(intent, 2);
+                }
+                
+                @Override
+                public void onExpenseLongClick(Expense expense) {
+                    deleteExpense(expense);
+                }
+            });
+            expensesRecyclerView.setAdapter(adapter);
         } else {
-            btnViewMore.setVisibility(View.GONE);
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    private void checkViewMoreButton() {
+        if (btnViewMore != null && allExpenses != null) {
+            if (allExpenses.size() > 2) {
+                btnViewMore.setVisibility(View.VISIBLE);
+            } else {
+                btnViewMore.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -197,6 +238,9 @@ public class MainActivity extends AppCompatActivity {
     private void deleteExpense(Expense expense) {
         // Remove from allExpenses
         allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+        
+        // Remove from DataManager
+        dataManager.deleteExpense(expense.getId());
         
         // Remove from recentExpenses
         recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));

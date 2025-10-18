@@ -36,6 +36,7 @@ public class AllExpensesActivity extends AppCompatActivity {
     private TextView totalExpensesTextView, topExpenseTextView;
     private EditText etSearch;
     private Spinner spinnerFilterCategory;
+    private DataManager dataManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +49,13 @@ public class AllExpensesActivity extends AppCompatActivity {
         
         setContentView(R.layout.activity_all_expenses);
 
+        // Initialize DataManager
+        dataManager = new DataManager(this);
+        
+        // Load expenses from storage
+        allExpenses = dataManager.loadExpenses();
+        filteredExpenses = new ArrayList<>(allExpenses);
+
         // Initialize views
         allExpensesRecyclerView = findViewById(R.id.allExpensesRecyclerView);
         totalExpensesTextView = findViewById(R.id.totalExpensesTextView);
@@ -56,13 +64,6 @@ public class AllExpensesActivity extends AppCompatActivity {
         spinnerFilterCategory = findViewById(R.id.spinnerFilterCategory);
         Button btnBack = findViewById(R.id.btnBack);
         Button btnExport = findViewById(R.id.btnExport);
-
-        // Get all expenses from intent
-        Expense[] expensesArray = (Expense[]) getIntent().getSerializableExtra("ALL_EXPENSES");
-        if (expensesArray != null) {
-            allExpenses = new ArrayList<>(Arrays.asList(expensesArray));
-            filteredExpenses = new ArrayList<>(allExpenses);
-        }
 
         // Setup RecyclerView
         adapter = new ExpenseAdapter(filteredExpenses);
@@ -123,7 +124,7 @@ public class AllExpensesActivity extends AppCompatActivity {
         // Setup category filter spinner
         List<String> categories = new ArrayList<>();
         categories.add("Všetky kategórie");
-        categories.addAll(Arrays.asList("Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie", "Zdravie", "Jedlo", "Iné"));
+        categories.addAll(dataManager.loadCategories());
         
         ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
         categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -201,6 +202,9 @@ public class AllExpensesActivity extends AppCompatActivity {
     }
 
     private void deleteExpense(Expense expense) {
+        // Remove from storage
+        dataManager.deleteExpense(expense.getId());
+        
         // Remove from allExpenses
         allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
         

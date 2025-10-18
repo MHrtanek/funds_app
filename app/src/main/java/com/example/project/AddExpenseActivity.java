@@ -22,6 +22,7 @@ public class AddExpenseActivity extends AppCompatActivity {
     private Spinner spinnerCategory;
     private Button btnSave, btnCancel, btnSelectDate, btnManageCategories;
     private Calendar selectedDate;
+    private DataManager dataManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +34,9 @@ public class AddExpenseActivity extends AppCompatActivity {
         }
         
         setContentView(R.layout.activity_add_expense);
+
+        // Initialize DataManager
+        dataManager = new DataManager(this);
 
         // Nájdeme elementy
         etAmount = findViewById(R.id.etAmount);
@@ -58,7 +62,6 @@ public class AddExpenseActivity extends AppCompatActivity {
     }
 
     private void setupCategorySpinner() {
-        DataManager dataManager = new DataManager(this);
         List<String> categories = dataManager.loadCategories();
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
@@ -120,14 +123,11 @@ public class AddExpenseActivity extends AppCompatActivity {
         // Vytvoriť nový výdavok
         Expense newExpense = new Expense(amount, description, category, selectedDateObj);
 
-        // Poslať výdavok späť do MainActivity
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("AMOUNT", amount);
-        resultIntent.putExtra("DESCRIPTION", description);
-        resultIntent.putExtra("CATEGORY", category);
-        resultIntent.putExtra("DATE", selectedDateObj.getTime()); // uložiť ako timestamp
+        // Uložiť do DataManager
+        dataManager.addExpense(newExpense);
 
-        setResult(RESULT_OK, resultIntent);
+        // Vrátiť späť do MainActivity
+        setResult(RESULT_OK);
         finish();
     }
 }
