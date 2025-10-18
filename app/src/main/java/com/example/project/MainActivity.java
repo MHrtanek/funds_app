@@ -54,6 +54,10 @@ public class MainActivity extends AppCompatActivity {
         }
         
         EdgeToEdge.enable(this);
+        
+        // Set initial status bar color based on current filter
+        updateStatusBarColor();
+        
         setContentView(R.layout.activity_main);
         
         // Initialize DataManager
@@ -337,6 +341,9 @@ public class MainActivity extends AppCompatActivity {
                 btnYearly.setBackgroundColor(Color.parseColor("#E3F2FD")); // Light blue
                 break;
         }
+        
+        // Update status bar color based on active filter
+        updateStatusBarColor();
     }
 
     private String getChartColorForFilter() {
@@ -350,6 +357,11 @@ public class MainActivity extends AppCompatActivity {
             default:
                 return "#4CAF50"; // Default green
         }
+    }
+
+    private void updateStatusBarColor() {
+        String colorString = getChartColorForFilter();
+        getWindow().setStatusBarColor(Color.parseColor(colorString));
     }
 
     private void updateChart() {

@@ -2,11 +2,11 @@ package com.example.project;
 
 
 
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CalendarView;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
@@ -20,7 +20,8 @@ public class AddExpenseActivity extends AppCompatActivity {
 
     private EditText etAmount, etDescription;
     private Spinner spinnerCategory;
-    private Button btnSave, btnCancel, btnSelectDate, btnManageCategories;
+    private Button btnSave, btnManageCategories;
+    private CalendarView calendarView;
     private Calendar selectedDate;
     private DataManager dataManager;
 
@@ -43,22 +44,23 @@ public class AddExpenseActivity extends AppCompatActivity {
         etDescription = findViewById(R.id.etDescription);
         spinnerCategory = findViewById(R.id.spinnerCategory);
         btnSave = findViewById(R.id.btnSave);
-        btnCancel = findViewById(R.id.btnCancel);
-        btnSelectDate = findViewById(R.id.btnSelectDate);
+        calendarView = findViewById(R.id.calendarView);
         btnManageCategories = findViewById(R.id.btnManageCategories);
         
         // Nastavíme dnešný dátum ako predvolený
         selectedDate = Calendar.getInstance();
-        updateDateButtonText();
 
         // Nastavíme kategórie pre Spinner
         setupCategorySpinner();
 
         // Nastavíme klik listenery
         btnSave.setOnClickListener(v -> saveExpense());
-        btnCancel.setOnClickListener(v -> finish());
-        btnSelectDate.setOnClickListener(v -> showDatePicker());
         btnManageCategories.setOnClickListener(v -> openCategoryManagement());
+        
+        // Setup calendar view
+        calendarView.setOnDateChangeListener((view, year, month, dayOfMonth) -> {
+            selectedDate.set(year, month, dayOfMonth);
+        });
     }
 
     private void setupCategorySpinner() {
@@ -71,26 +73,6 @@ public class AddExpenseActivity extends AppCompatActivity {
         spinnerCategory.setAdapter(adapter);
     }
 
-    private void updateDateButtonText() {
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
-        btnSelectDate.setText(sdf.format(selectedDate.getTime()));
-    }
-
-    private void showDatePicker() {
-        DatePickerDialog datePickerDialog = new DatePickerDialog(
-                this,
-                (view, year, month, dayOfMonth) -> {
-                    selectedDate.set(Calendar.YEAR, year);
-                    selectedDate.set(Calendar.MONTH, month);
-                    selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                    updateDateButtonText();
-                },
-                selectedDate.get(Calendar.YEAR),
-                selectedDate.get(Calendar.MONTH),
-                selectedDate.get(Calendar.DAY_OF_MONTH)
-        );
-        datePickerDialog.show();
-    }
 
     private void openCategoryManagement() {
         Intent intent = new Intent(this, CategoryManagementActivity.class);
