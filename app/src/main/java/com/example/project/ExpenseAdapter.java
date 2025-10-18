@@ -2,13 +2,11 @@ package com.example.project;
 
 
 import android.graphics.Color;
-import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
@@ -19,7 +17,6 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
 
     private List<Expense> expenses;
     private Map<String, Integer> categoryColors;
-    private Map<String, Integer> categoryIcons;
     private OnExpenseClickListener listener;
 
     public interface OnExpenseClickListener {
@@ -30,7 +27,6 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
     public ExpenseAdapter(List<Expense> expenses) {
         this.expenses = expenses;
         setupCategoryColors();
-        setupCategoryIcons();
     }
 
     public void setOnExpenseClickListener(OnExpenseClickListener listener) {
@@ -49,17 +45,6 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
         categoryColors.put("Iné", Color.parseColor("#607D8B")); // Modrošedá
     }
 
-    private void setupCategoryIcons() {
-        categoryIcons = new HashMap<>();
-        categoryIcons.put("Potraviny", R.drawable.ic_food);
-        categoryIcons.put("Bývanie", R.drawable.ic_home);
-        categoryIcons.put("Doprava", R.drawable.ic_transport);
-        categoryIcons.put("Zábava", R.drawable.ic_entertainment);
-        categoryIcons.put("Oblečenie", R.drawable.ic_clothing);
-        categoryIcons.put("Zdravie", R.drawable.ic_health);
-        categoryIcons.put("Jedlo", R.drawable.ic_food);
-        categoryIcons.put("Iné", R.drawable.ic_other);
-    }
 
     @NonNull
     @Override
@@ -117,14 +102,6 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
             tvCategory.setBackgroundColor(categoryColor);
             tvCategory.setTextColor(Color.WHITE);
 
-            // Nastavíme ikonu kategórie
-            int iconRes = categoryIcons.getOrDefault(expense.getCategory(), R.drawable.ic_other);
-            Drawable icon = ContextCompat.getDrawable(tvCategory.getContext(), iconRes);
-            if (icon != null) {
-                icon.setBounds(0, 0, icon.getIntrinsicWidth(), icon.getIntrinsicHeight());
-                tvCategory.setCompoundDrawables(icon, null, null, null);
-                tvCategory.setCompoundDrawablePadding(8);
-            }
 
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
             tvDate.setText(sdf.format(expense.getDate()));

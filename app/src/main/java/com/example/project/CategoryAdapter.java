@@ -12,15 +12,15 @@ import java.util.List;
 public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.CategoryViewHolder> {
     
     private List<String> categories;
-    private OnCategoryDeleteListener deleteListener;
+    private OnCategoryDeleteListener listener;
     
     public interface OnCategoryDeleteListener {
         void onCategoryDelete(String category);
     }
     
-    public CategoryAdapter(List<String> categories, OnCategoryDeleteListener deleteListener) {
+    public CategoryAdapter(List<String> categories, OnCategoryDeleteListener listener) {
         this.categories = categories;
-        this.deleteListener = deleteListener;
+        this.listener = listener;
     }
     
     @NonNull
@@ -34,11 +34,11 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
     @Override
     public void onBindViewHolder(@NonNull CategoryViewHolder holder, int position) {
         String category = categories.get(position);
-        holder.tvCategoryName.setText(category);
+        holder.bind(category);
         
-        holder.btnDeleteCategory.setOnClickListener(v -> {
-            if (deleteListener != null) {
-                deleteListener.onCategoryDelete(category);
+        holder.btnDelete.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onCategoryDelete(category);
             }
         });
     }
@@ -55,12 +55,16 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
     
     static class CategoryViewHolder extends RecyclerView.ViewHolder {
         TextView tvCategoryName;
-        Button btnDeleteCategory;
+        Button btnDelete;
         
         CategoryViewHolder(@NonNull View itemView) {
             super(itemView);
             tvCategoryName = itemView.findViewById(R.id.tvCategoryName);
-            btnDeleteCategory = itemView.findViewById(R.id.btnDeleteCategory);
+            btnDelete = itemView.findViewById(R.id.btnDeleteCategory);
+        }
+        
+        void bind(String categoryName) {
+            tvCategoryName.setText(categoryName);
         }
     }
 }
