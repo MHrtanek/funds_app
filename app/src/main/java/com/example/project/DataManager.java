@@ -1,5 +1,4 @@
 package com.example.project;
-
 import android.content.Context;
 import android.content.SharedPreferences;
 import org.json.JSONArray;
@@ -11,20 +10,14 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-
 public class DataManager {
-    
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_EXPENSES = "expenses";
     private static final String KEY_CATEGORIES = "categories";
-    
     private SharedPreferences sharedPreferences;
-    
     public DataManager(Context context) {
         sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
-    
-    // Expense management
     public void saveExpenses(List<Expense> expenses) {
         try {
             JSONArray jsonArray = new JSONArray();
@@ -42,13 +35,11 @@ public class DataManager {
             e.printStackTrace();
         }
     }
-    
     public List<Expense> loadExpenses() {
         String expensesJson = sharedPreferences.getString(KEY_EXPENSES, null);
         if (expensesJson == null) {
             return new ArrayList<>();
         }
-        
         List<Expense> expenses = new ArrayList<>();
         try {
             JSONArray jsonArray = new JSONArray(expensesJson);
@@ -67,13 +58,11 @@ public class DataManager {
         }
         return expenses;
     }
-    
     public void addExpense(Expense expense) {
         List<Expense> expenses = loadExpenses();
-        expenses.add(0, expense); // Add to beginning
+        expenses.add(0, expense); 
         saveExpenses(expenses);
     }
-    
     public void updateExpense(Expense updatedExpense) {
         List<Expense> expenses = loadExpenses();
         for (int i = 0; i < expenses.size(); i++) {
@@ -84,14 +73,11 @@ public class DataManager {
         }
         saveExpenses(expenses);
     }
-    
     public void deleteExpense(String expenseId) {
         List<Expense> expenses = loadExpenses();
         expenses.removeIf(expense -> expense.getId().equals(expenseId));
         saveExpenses(expenses);
     }
-    
-    // Category management
     public void saveCategories(List<String> categories) {
         JSONArray jsonArray = new JSONArray();
         for (String category : categories) {
@@ -99,17 +85,14 @@ public class DataManager {
         }
         sharedPreferences.edit().putString(KEY_CATEGORIES, jsonArray.toString()).apply();
     }
-    
     public List<String> loadCategories() {
         String categoriesJson = sharedPreferences.getString(KEY_CATEGORIES, null);
         if (categoriesJson == null) {
-            // Return default categories if none saved
             return new ArrayList<>(Arrays.asList(
                 "Potraviny", "Bývanie", "Doprava", "Zábava",
                 "Oblečenie", "Zdravie", "Jedlo", "Iné"
             ));
         }
-        
         List<String> categories = new ArrayList<>();
         try {
             JSONArray jsonArray = new JSONArray(categoriesJson);
@@ -121,7 +104,6 @@ public class DataManager {
         }
         return categories;
     }
-    
     public void addCategory(String category) {
         List<String> categories = loadCategories();
         if (!categories.contains(category)) {
@@ -129,14 +111,11 @@ public class DataManager {
             saveCategories(categories);
         }
     }
-    
     public void deleteCategory(String category) {
         List<String> categories = loadCategories();
         categories.remove(category);
         saveCategories(categories);
     }
-    
-    // Clear all data
     public void clearAllData() {
         sharedPreferences.edit().clear().apply();
     }
