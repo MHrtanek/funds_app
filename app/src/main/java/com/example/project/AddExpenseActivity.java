@@ -1,6 +1,8 @@
 package com.example.project;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -97,18 +99,53 @@ public class AddExpenseActivity extends AppCompatActivity {
         }
     }
     private void saveExpense() {
-        String amountText = etAmount.getText().toString();
-        String description = etDescription.getText().toString();
-        String category = spinnerCategory.getSelectedItem().toString();
+        String amountText = etAmount.getText().toString().trim().replace(',', '.');
+        String description = etDescription.getText().toString().trim();
         if (amountText.isEmpty() || description.isEmpty()) {
-            Toast.makeText(this, "Prosim vyplnte všetky polia ", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Prosím vyplňte všetky polia", Toast.LENGTH_SHORT).show();
             return;
         }
-        double amount = Double.parseDouble(amountText);
+        if (spinnerCategory.getSelectedItem() == null) {
+            Toast.makeText(this, "Vyberte kategóriu", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String category = spinnerCategory.getSelectedItem().toString();
+        double amount;
+        try {
+            amount = Double.parseDouble(amountText);
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Neplatná suma", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (amount <= 0) {
+            Toast.makeText(this, "Suma musí byť väčšia ako 0", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Date selectedDateObj = selectedDate.getTime();
         Expense newExpense = new Expense(amount, description, category, selectedDateObj);
         dataManager.addExpense(newExpense);
+        btnSave.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         setResult(RESULT_OK);
         finish();
+    }
+
+    private boolean hasUnsavedChanges() {
+        String amount = etAmount.getText().toString();
+        String description = etDescription.getText().toString();
+        return !amount.isEmpty() || !description.isEmpty();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (hasUnsavedChanges()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Zahodiť zmeny?")
+                    .setMessage("Máš nevyplnené polia. Naozaj chceš odísť?")
+                    .setPositiveButton("Zahodiť", (dialog, which) -> super.onBackPressed())
+                    .setNegativeButton("Zostať", null)
+                    .show();
+        } else {
+            super.onBackPressed();
+        }
     }
 }

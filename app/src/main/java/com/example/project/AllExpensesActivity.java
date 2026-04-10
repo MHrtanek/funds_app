@@ -1,10 +1,14 @@
 package com.example.project;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -14,6 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
@@ -21,17 +26,23 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 public class AllExpensesActivity extends AppCompatActivity {
     private RecyclerView allExpensesRecyclerView;
     private ExpenseAdapter adapter;
     private List<Expense> allExpenses = new ArrayList<>();
     private List<Expense> filteredExpenses = new ArrayList<>();
     private TextView totalExpensesTextView, topExpenseTextView;
+    private TextView tvExpenseCount, tvAverageExpense, tvTopCategory;
     private EditText etSearch;
-    private Spinner spinnerFilterCategory;
+    private Spinner spinnerFilterCategory, spinnerSort;
+    private String currentSortType = "Najnovšie";
     private DataManager dataManager;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,13 +57,18 @@ public class AllExpensesActivity extends AppCompatActivity {
         allExpensesRecyclerView = findViewById(R.id.allExpensesRecyclerView);
         totalExpensesTextView = findViewById(R.id.totalExpensesTextView);
         topExpenseTextView = findViewById(R.id.topExpenseTextView);
+        tvExpenseCount = findViewById(R.id.tvExpenseCount);
+        tvAverageExpense = findViewById(R.id.tvAverageExpense);
+        tvTopCategory = findViewById(R.id.tvTopCategory);
         etSearch = findViewById(R.id.etSearch);
         spinnerFilterCategory = findViewById(R.id.spinnerFilterCategory);
+        spinnerSort = findViewById(R.id.spinnerSort);
         Button btnBack = findViewById(R.id.btnBack);
         Button btnExport = findViewById(R.id.btnExport);
         adapter = new ExpenseAdapter(filteredExpenses);
         allExpensesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         allExpensesRecyclerView.setAdapter(adapter);
+        setupSwipeToDelete();
         adapter.setOnExpenseClickListener(new ExpenseAdapter.OnExpenseClickListener() {
             @Override
             public void onExpenseClick(Expense expense) {
@@ -93,6 +109,13 @@ public class AllExpensesActivity extends AppCompatActivity {
         ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
         categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerFilterCategory.setAdapter(categoryAdapter);
+
+        List<String> sortOptions = Arrays.asList(
+                "Najnovšie", "Najstaršie", "Najvyššia suma", "Najnižšia suma", "Kategória A-Z");
+        ArrayAdapter<String> sortAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, sortOptions);
+        sortAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSort.setAdapter(sortAdapter);
+
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -106,6 +129,15 @@ public class AllExpensesActivity extends AppCompatActivity {
         spinnerFilterCategory.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                filterExpenses();
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        spinnerSort.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                currentSortType = sortOptions.get(position);
                 filterExpenses();
             }
             @Override
@@ -125,9 +157,31 @@ public class AllExpensesActivity extends AppCompatActivity {
                 filteredExpenses.add(expense);
             }
         }
+        sortExpenses(currentSortType);
         adapter.notifyDataSetChanged();
         updateTotalExpenses();
     }
+
+    private void sortExpenses(String sortType) {
+        switch (sortType) {
+            case "Najnovšie":
+                Collections.sort(filteredExpenses, (e1, e2) -> e2.getDate().compareTo(e1.getDate()));
+                break;
+            case "Najstaršie":
+                Collections.sort(filteredExpenses, (e1, e2) -> e1.getDate().compareTo(e2.getDate()));
+                break;
+            case "Najvyššia suma":
+                Collections.sort(filteredExpenses, (e1, e2) -> Double.compare(e2.getAmount(), e1.getAmount()));
+                break;
+            case "Najnižšia suma":
+                Collections.sort(filteredExpenses, (e1, e2) -> Double.compare(e1.getAmount(), e2.getAmount()));
+                break;
+            case "Kategória A-Z":
+                Collections.sort(filteredExpenses, (e1, e2) -> e1.getCategory().compareTo(e2.getCategory()));
+                break;
+        }
+    }
+
     private void updateTotalExpenses() {
         double total = 0;
         double maxExpense = 0;
@@ -137,9 +191,70 @@ public class AllExpensesActivity extends AppCompatActivity {
                 maxExpense = expense.getAmount();
             }
         }
-        totalExpensesTextView.setText(String.format("%.2f €", total));
+        totalExpensesTextView.setText(String.format("%d výdavkov · %.2f €", filteredExpenses.size(), total));
         topExpenseTextView.setText(String.format("%.2f €", maxExpense));
+
+        tvExpenseCount.setText(String.valueOf(filteredExpenses.size()));
+        if (filteredExpenses.size() > 0) {
+            tvAverageExpense.setText(String.format("%.2f €", total / filteredExpenses.size()));
+        } else {
+            tvAverageExpense.setText("0.00 €");
+        }
+
+        Map<String, Double> categoryTotals = new HashMap<>();
+        for (Expense expense : filteredExpenses) {
+            categoryTotals.put(expense.getCategory(),
+                    categoryTotals.getOrDefault(expense.getCategory(), 0.0) + expense.getAmount());
+        }
+        String topCategory = "–";
+        double maxCategoryTotal = 0;
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > maxCategoryTotal) {
+                maxCategoryTotal = entry.getValue();
+                topCategory = entry.getKey();
+            }
+        }
+        if (maxCategoryTotal > 0) {
+            tvTopCategory.setText(topCategory + " (" + String.format("%.2f €", maxCategoryTotal) + ")");
+        } else {
+            tvTopCategory.setText("–");
+        }
     }
+    private void setupSwipeToDelete() {
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            @Override
+            public boolean onMove(@androidx.annotation.NonNull RecyclerView recyclerView,
+                                  @androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder,
+                                  @androidx.annotation.NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                if (position >= 0 && position < filteredExpenses.size()) {
+                    Expense expense = filteredExpenses.get(position);
+                    showDeleteDialog(expense);
+                }
+                adapter.notifyItemChanged(viewHolder.getAdapterPosition());
+            }
+
+            @Override
+            public void onChildDraw(@androidx.annotation.NonNull Canvas c,
+                                    @androidx.annotation.NonNull RecyclerView recyclerView,
+                                    @androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder,
+                                    float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                View itemView = viewHolder.itemView;
+                ColorDrawable background = new ColorDrawable(Color.parseColor("#F44336"));
+                background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(),
+                        itemView.getRight(), itemView.getBottom());
+                background.draw(c);
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+            }
+        });
+        itemTouchHelper.attachToRecyclerView(allExpensesRecyclerView);
+    }
+
     private void showDeleteDialog(Expense expense) {
         new AlertDialog.Builder(this)
                 .setTitle("Zmazať výdavok")

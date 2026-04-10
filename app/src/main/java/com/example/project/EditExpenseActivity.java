@@ -9,7 +9,6 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -20,6 +19,7 @@ public class EditExpenseActivity extends AppCompatActivity {
     private CalendarView calendarView;
     private Calendar selectedDate;
     private Expense expenseToEdit;
+    private DataManager dataManager;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,6 +28,7 @@ public class EditExpenseActivity extends AppCompatActivity {
         }
         setContentView(R.layout.activity_edit_expense);
         getWindow().setStatusBarColor(Color.parseColor("#FFFF9800"));
+        dataManager = new DataManager(this);
         expenseToEdit = (Expense) getIntent().getSerializableExtra("EXPENSE_TO_EDIT");
         if (expenseToEdit == null) {
             Toast.makeText(this, "Chyba: Výdavok nebol nájdený", Toast.LENGTH_SHORT).show();
@@ -44,7 +45,7 @@ public class EditExpenseActivity extends AppCompatActivity {
         selectedDate = Calendar.getInstance();
         selectedDate.setTime(expenseToEdit.getDate());
         setupCategorySpinner();
-        List<String> categories = Arrays.asList("Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie", "Zdravie", "Jedlo", "Iné");
+        List<String> categories = dataManager.loadCategories();
         int categoryIndex = categories.indexOf(expenseToEdit.getCategory());
         if (categoryIndex >= 0) {
             spinnerCategory.setSelection(categoryIndex);
@@ -55,10 +56,7 @@ public class EditExpenseActivity extends AppCompatActivity {
         });
     }
     private void setupCategorySpinner() {
-        List<String> categories = Arrays.asList(
-                "Potraviny", "Bývanie", "Doprava", "Zábava",
-                "Oblečenie", "Zdravie", "Jedlo", "Iné"
-        );
+        List<String> categories = dataManager.loadCategories();
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_spinner_item, categories
         );

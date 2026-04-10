@@ -1,25 +1,39 @@
 package com.example.project;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ArgbEvaluator;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.PieData;
+import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import java.text.SimpleDateFormat;
@@ -32,9 +46,11 @@ import java.util.Locale;
 import java.util.Map;
 public class MainActivity extends AppCompatActivity {
     private RecyclerView expensesRecyclerView;
-    private Button btnAdd, btnViewMore, btnDaily, btnYearly, btnMonthly;
+    private Button btnAdd, btnViewMore, btnDaily, btnYearly, btnMonthly, btnSetBudget;
     private LineChart expenseChart;
+    private PieChart pieChart;
     private TextView monthlyTotalTextView, dailyAverageTextView, lastMonthTotalTextView, monthlyChangeTextView;
+    private TextView tvEmptyState, tvBudgetStatus, tvChartEmpty;
     private List<Expense> allExpenses = new ArrayList<>();
     private List<Expense> recentExpenses = new ArrayList<>();
     private ExpenseAdapter adapter;
@@ -69,6 +85,12 @@ public class MainActivity extends AppCompatActivity {
         dailyAverageTextView = findViewById(R.id.dailyAverageTextView);
         lastMonthTotalTextView = findViewById(R.id.lastMonthTotalTextView);
         monthlyChangeTextView = findViewById(R.id.monthlyChangeTextView);
+        tvEmptyState = findViewById(R.id.tvEmptyState);
+        tvBudgetStatus = findViewById(R.id.tvBudgetStatus);
+        tvChartEmpty = findViewById(R.id.tvChartEmpty);
+        pieChart = findViewById(R.id.pieChart);
+        btnSetBudget = findViewById(R.id.btnSetBudget);
+        btnSetBudget.setOnClickListener(v -> showBudgetDialog());
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
         String currentDate = sdf.format(new Date());
         dateTextView.setText(currentDate);
@@ -88,9 +110,12 @@ public class MainActivity extends AppCompatActivity {
             loadExpensesFromStorage();
         }
         updateRecentExpenses();
+        setupSwipeToDelete();
         checkViewMoreButton();
         updateChart();
+        updatePieChart();
         updateMonthlyTotals();
+        checkBudgetWarning();
     }
     @Override
     protected void onResume() {
@@ -99,7 +124,9 @@ public class MainActivity extends AppCompatActivity {
         updateRecentExpenses();
         checkViewMoreButton();
         updateChart();
+        updatePieChart();
         updateMonthlyTotals();
+        checkBudgetWarning();
     }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -124,7 +151,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 adapter.notifyDataSetChanged();
                 updateChart();
+                updatePieChart();
                 updateMonthlyTotals();
+                checkBudgetWarning();
             }
         }
     }
@@ -133,7 +162,9 @@ public class MainActivity extends AppCompatActivity {
         updateRecentExpenses();
         checkViewMoreButton();
         updateChart();
+        updatePieChart();
         updateMonthlyTotals();
+        checkBudgetWarning();
     }
     private void updateRecentExpenses() {
         if (allExpenses == null) {
@@ -162,7 +193,13 @@ public class MainActivity extends AppCompatActivity {
             expensesRecyclerView.setAdapter(adapter);
         } else {
             adapter.notifyDataSetChanged();
+
+            // Posunieme sa na začiatok, ak zoznam nie je prázdny
+            if (!recentExpenses.isEmpty()) {
+                expensesRecyclerView.scrollToPosition(0);
+            }
         }
+        updateEmptyState();
     }
     private void checkViewMoreButton() {
         if (btnViewMore != null && allExpenses != null) {
@@ -182,7 +219,6 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
     private void deleteExpense(Expense expense) {
-        // Nájdeme pozíciu výdavku v zozname
         int position = -1;
         for (int i = 0; i < recentExpenses.size(); i++) {
             if (recentExpenses.get(i).getId().equals(expense.getId())) {
@@ -190,28 +226,57 @@ public class MainActivity extends AppCompatActivity {
                 break;
             }
         }
-        
-        // Ak sme našli pozíciu, použijeme animáciu zmiznutia
+
         if (position != -1) {
-            // Najprv odstránime z dát
-            allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
-            dataManager.deleteExpense(expense.getId());
-            recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));
-            
-            // Potom animujeme zmiznutie
-            adapter.notifyItemRemoved(position);
-            adapter.notifyItemRangeChanged(position, recentExpenses.size());
+            RecyclerView.ViewHolder viewHolder = expensesRecyclerView.findViewHolderForAdapterPosition(position);
+            if (viewHolder != null) {
+                View view = viewHolder.itemView;
+                int finalPosition = position;
+                ObjectAnimator fadeOut = ObjectAnimator.ofFloat(view, "alpha", 1f, 0f);
+                fadeOut.setDuration(250);
+                fadeOut.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        view.setAlpha(1f);
+                        allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+                        dataManager.deleteExpense(expense.getId());
+                        recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+                        adapter.notifyItemRemoved(finalPosition);
+                        adapter.notifyItemRangeChanged(finalPosition, recentExpenses.size());
+                        checkViewMoreButton();
+                        updateChart();
+                        updatePieChart();
+                        updateMonthlyTotals();
+                        checkBudgetWarning();
+                        updateEmptyState();
+                    }
+                });
+                fadeOut.start();
+            } else {
+                allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+                dataManager.deleteExpense(expense.getId());
+                recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));
+                adapter.notifyItemRemoved(position);
+                adapter.notifyItemRangeChanged(position, recentExpenses.size());
+                checkViewMoreButton();
+                updateChart();
+                updatePieChart();
+                updateMonthlyTotals();
+                checkBudgetWarning();
+                updateEmptyState();
+            }
         } else {
-            // Ak sme nenašli pozíciu, odstránime z dát a aktualizujeme adapter
             allExpenses.removeIf(e -> e.getId().equals(expense.getId()));
             dataManager.deleteExpense(expense.getId());
             recentExpenses.removeIf(e -> e.getId().equals(expense.getId()));
             adapter.notifyDataSetChanged();
+            checkViewMoreButton();
+            updateChart();
+            updatePieChart();
+            updateMonthlyTotals();
+            checkBudgetWarning();
+            updateEmptyState();
         }
-        
-        checkViewMoreButton();
-        updateChart();
-        updateMonthlyTotals();
     }
     private void setupChart() {
         try {
@@ -220,22 +285,30 @@ public class MainActivity extends AppCompatActivity {
             expenseChart.setPinchZoom(false);
             expenseChart.setScaleEnabled(false);
             expenseChart.getLegend().setEnabled(false);
-            expenseChart.setBackgroundColor(Color.WHITE);
-            expenseChart.setGridBackgroundColor(Color.LTGRAY);
+            expenseChart.setBackgroundColor(Color.TRANSPARENT);
+            expenseChart.setExtraOffsets(10f, 20f, 10f, 10f);
             XAxis xAxis = expenseChart.getXAxis();
             xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
             xAxis.setDrawGridLines(false);
+            xAxis.setDrawAxisLine(false);
             xAxis.setGranularity(1f);
             xAxis.setLabelCount(7);
-            xAxis.setTextColor(Color.BLACK);
+            xAxis.setTextColor(Color.parseColor("#9E9E9E"));
             xAxis.setTextSize(12f);
-            xAxis.setAxisLineColor(Color.BLACK);
-            expenseChart.setExtraOffsets(0f, 0f, 0f, 20f);
+            xAxis.setYOffset(10f);
             expenseChart.getAxisLeft().setDrawGridLines(true);
-            expenseChart.getAxisLeft().setGridColor(Color.LTGRAY);
-            expenseChart.getAxisLeft().setTextColor(Color.BLACK);
+            expenseChart.getAxisLeft().setGridColor(Color.parseColor("#F0F0F0"));
+            expenseChart.getAxisLeft().setGridLineWidth(1f);
+            expenseChart.getAxisLeft().setDrawAxisLine(false);
+            expenseChart.getAxisLeft().setTextColor(Color.parseColor("#9E9E9E"));
             expenseChart.getAxisLeft().setTextSize(12f);
-            expenseChart.getAxisLeft().setAxisLineColor(Color.BLACK);
+            expenseChart.getAxisLeft().setGranularity(1f);
+            expenseChart.getAxisLeft().setValueFormatter(new ValueFormatter() {
+                @Override
+                public String getFormattedValue(float value) {
+                    return String.format("%.0f", value);
+                }
+            });
             expenseChart.getAxisRight().setEnabled(false);
             expenseChart.setVisibility(View.VISIBLE);
             updateChart();
@@ -250,16 +323,19 @@ public class MainActivity extends AppCompatActivity {
             currentFilter = "Deň";
             updateFilterButtonStates();
             updateChart();
+            updatePieChart();
         });
         btnMonthly.setOnClickListener(v -> {
             currentFilter = "Mesiac";
             updateFilterButtonStates();
             updateChart();
+            updatePieChart();
         });
         btnYearly.setOnClickListener(v -> {
             currentFilter = "Rok";
             updateFilterButtonStates();
             updateChart();
+            updatePieChart();
         });
     }
     private void updateFilterButtonStates() {
@@ -332,18 +408,30 @@ public class MainActivity extends AppCompatActivity {
                 entries.add(new Entry(0, 0));
                 labels.add("Žiadne dáta");
             }
+            boolean allZero = true;
+            for (Entry entry : entries) {
+                if (entry.getY() != 0f) {
+                    allZero = false;
+                    break;
+                }
+            }
             LineDataSet dataSet = new LineDataSet(entries, "Výdavky");
             String chartColor = getChartColorForFilter();
             dataSet.setColor(Color.parseColor(chartColor));
-            dataSet.setValueTextColor(Color.BLACK);
-            dataSet.setValueTextSize(12f);
-            dataSet.setLineWidth(3f);
-            dataSet.setCircleRadius(6f);
+            dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+            dataSet.setCubicIntensity(0.2f);
+            dataSet.setLineWidth(2.5f);
+            dataSet.setDrawCircles(true);
+            dataSet.setCircleRadius(5f);
             dataSet.setCircleColor(Color.parseColor(chartColor));
+            dataSet.setCircleHoleRadius(3f);
+            dataSet.setCircleHoleColor(Color.WHITE);
             dataSet.setFillColor(Color.parseColor(chartColor));
-            dataSet.setFillAlpha(100);
-            dataSet.setDrawFilled(true); 
-            dataSet.setDrawValues(true);
+            dataSet.setFillAlpha(40);
+            dataSet.setDrawFilled(true);
+            dataSet.setDrawValues(!allZero);
+            dataSet.setValueTextSize(11f);
+            dataSet.setValueTextColor(Color.parseColor("#616161"));
             LineData lineData = new LineData(dataSet);
             lineData.setValueFormatter(new ValueFormatter() {
                 @Override
@@ -355,6 +443,7 @@ public class MainActivity extends AppCompatActivity {
             expenseChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
             expenseChart.getAxisLeft().setAxisMinimum(0f);
             expenseChart.getAxisRight().setAxisMinimum(0f);
+            expenseChart.animateX(600);
             expenseChart.invalidate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -362,7 +451,6 @@ public class MainActivity extends AppCompatActivity {
     }
     private Map<String, Float> getAggregatedData() {
         Map<String, Float> aggregatedData = new HashMap<>();
-        Calendar calendar = Calendar.getInstance();
         Date currentDate = new Date();
         for (Expense expense : allExpenses) {
             String key = getKeyForExpense(expense, currentDate);
@@ -502,14 +590,6 @@ public class MainActivity extends AppCompatActivity {
         currentCalendar.add(Calendar.DAY_OF_MONTH, -days);
         return expenseDate.after(currentCalendar.getTime()) || expenseDate.equals(currentCalendar.getTime());
     }
-    private boolean isWithinWeeks(Date expenseDate, Date currentDate, int weeks) {
-        Calendar expenseCalendar = Calendar.getInstance();
-        expenseCalendar.setTime(expenseDate);
-        Calendar currentCalendar = Calendar.getInstance();
-        currentCalendar.setTime(currentDate);
-        currentCalendar.add(Calendar.WEEK_OF_YEAR, -weeks);
-        return expenseDate.after(currentCalendar.getTime()) || expenseDate.equals(currentCalendar.getTime());
-    }
     private boolean isWithinMonths(Date expenseDate, Date currentDate, int months) {
         Calendar expenseCalendar = Calendar.getInstance();
         expenseCalendar.setTime(expenseDate);
@@ -533,7 +613,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         monthlyTotalTextView.setText(String.format("%.2f €", monthlyTotal));
-        double dailyAverage = monthlyTotal / daysInMonth;
+        double dailyAverage = monthlyTotal / Math.min(calendar.get(Calendar.DAY_OF_MONTH), daysInMonth);
         dailyAverageTextView.setText(String.format("%.2f €", dailyAverage));
         Calendar lastMonth = Calendar.getInstance();
         lastMonth.add(Calendar.MONTH, -1);
@@ -550,16 +630,196 @@ public class MainActivity extends AppCompatActivity {
         }
         lastMonthTotalTextView.setText(String.format("%.2f €", lastMonthTotal));
         double change = monthlyTotal - lastMonthTotal;
-        String changeText = String.format("%.2f €", Math.abs(change));
-        if (change > 0) {
-            changeText = "+" + changeText;
-            monthlyChangeTextView.setTextColor(Color.parseColor("#F44336")); 
+        if (monthlyTotal == 0 && lastMonthTotal == 0) {
+            monthlyChangeTextView.setText("–");
+            monthlyChangeTextView.setTextColor(Color.parseColor("#666666"));
+        } else if (monthlyTotal == 0) {
+            monthlyChangeTextView.setText("Žiadne výdavky tento mesiac");
+            monthlyChangeTextView.setTextColor(Color.parseColor("#666666"));
+        } else if (change > 0) {
+            monthlyChangeTextView.setText(String.format("+%.2f €", change));
+            monthlyChangeTextView.setTextColor(Color.parseColor("#F44336"));
         } else if (change < 0) {
-            changeText = "-" + changeText;
-            monthlyChangeTextView.setTextColor(Color.parseColor("#4CAF50")); 
+            monthlyChangeTextView.setText(String.format("-%.2f €", Math.abs(change)));
+            monthlyChangeTextView.setTextColor(Color.parseColor("#4CAF50"));
         } else {
-            monthlyChangeTextView.setTextColor(Color.parseColor("#666666")); 
+            monthlyChangeTextView.setText("0.00 €");
+            monthlyChangeTextView.setTextColor(Color.parseColor("#666666"));
         }
-        monthlyChangeTextView.setText(changeText);
+        checkBudgetWarning();
+    }
+
+    private void showBudgetDialog() {
+        EditText etBudget = new EditText(this);
+        etBudget.setHint("Zadajte mesačný limit (€)");
+        etBudget.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        double currentBudget = dataManager.loadBudget();
+        if (currentBudget > 0) {
+            etBudget.setText(String.valueOf(currentBudget));
+        }
+        etBudget.setPadding(50, 30, 50, 30);
+        new AlertDialog.Builder(this)
+                .setTitle("Mesačný rozpočet")
+                .setMessage("Nastavte mesačný limit výdavkov:")
+                .setView(etBudget)
+                .setPositiveButton("Uložiť", (dialog, which) -> {
+                    String input = etBudget.getText().toString().trim();
+                    if (!input.isEmpty()) {
+                        try {
+                            double budget = Double.parseDouble(input);
+                            dataManager.saveBudget(budget);
+                            checkBudgetWarning();
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(this, "Neplatná hodnota", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setNeutralButton("Odstrániť limit", (dialog, which) -> {
+                    dataManager.saveBudget(0.0);
+                    checkBudgetWarning();
+                })
+                .setNegativeButton("Zrušiť", null)
+                .show();
+    }
+
+    private void checkBudgetWarning() {
+        if (tvBudgetStatus == null) return;
+        double budget = dataManager.loadBudget();
+        if (budget <= 0) {
+            tvBudgetStatus.setVisibility(View.GONE);
+            return;
+        }
+        Calendar calendar = Calendar.getInstance();
+        int currentMonth = calendar.get(Calendar.MONTH);
+        int currentYear = calendar.get(Calendar.YEAR);
+        double monthlyTotal = 0;
+        for (Expense expense : allExpenses) {
+            Calendar expenseCalendar = Calendar.getInstance();
+            expenseCalendar.setTime(expense.getDate());
+            if (expenseCalendar.get(Calendar.MONTH) == currentMonth &&
+                    expenseCalendar.get(Calendar.YEAR) == currentYear) {
+                monthlyTotal += expense.getAmount();
+            }
+        }
+        double ratio = monthlyTotal / budget;
+        if (ratio >= 1.0) {
+            tvBudgetStatus.setVisibility(View.VISIBLE);
+            tvBudgetStatus.setText("🚨 Prekročil si mesačný rozpočet!");
+            tvBudgetStatus.setTextColor(Color.parseColor("#F44336"));
+            tvBudgetStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
+        } else if (ratio >= 0.9) {
+            tvBudgetStatus.setVisibility(View.VISIBLE);
+            tvBudgetStatus.setText("⚠️ Blížiš sa k limitu!");
+            tvBudgetStatus.setTextColor(Color.parseColor("#FF9800"));
+            tvBudgetStatus.setBackgroundColor(Color.parseColor("#FFF3E0"));
+        } else {
+            tvBudgetStatus.setVisibility(View.GONE);
+        }
+    }
+
+    private void updatePieChart() {
+        if (pieChart == null) return;
+        try {
+            Calendar calendar = Calendar.getInstance();
+            int currentMonth = calendar.get(Calendar.MONTH);
+            int currentYear = calendar.get(Calendar.YEAR);
+            Map<String, Float> categoryTotals = new HashMap<>();
+            for (Expense expense : allExpenses) {
+                Calendar expenseCalendar = Calendar.getInstance();
+                expenseCalendar.setTime(expense.getDate());
+                if (expenseCalendar.get(Calendar.MONTH) == currentMonth &&
+                        expenseCalendar.get(Calendar.YEAR) == currentYear) {
+                    String category = expense.getCategory();
+                    categoryTotals.put(category, categoryTotals.getOrDefault(category, 0f) + (float) expense.getAmount());
+                }
+            }
+            if (categoryTotals.isEmpty()) {
+                pieChart.setVisibility(View.GONE);
+                return;
+            }
+            Map<String, Integer> colorMap = new HashMap<>();
+            colorMap.put("Potraviny", Color.parseColor("#4CAF50"));
+            colorMap.put("Bývanie",   Color.parseColor("#2196F3"));
+            colorMap.put("Doprava",   Color.parseColor("#FF9800"));
+            colorMap.put("Zábava",    Color.parseColor("#9C27B0"));
+            colorMap.put("Oblečenie", Color.parseColor("#E91E63"));
+            colorMap.put("Zdravie",   Color.parseColor("#F44336"));
+            colorMap.put("Jedlo",     Color.parseColor("#795548"));
+            colorMap.put("Iné",       Color.parseColor("#607D8B"));
+            List<PieEntry> entries = new ArrayList<>();
+            List<Integer> colors  = new ArrayList<>();
+            for (Map.Entry<String, Float> entry : categoryTotals.entrySet()) {
+                entries.add(new PieEntry(entry.getValue(), entry.getKey()));
+                Integer c = colorMap.get(entry.getKey());
+                colors.add(c != null ? c : Color.parseColor("#607D8B"));
+            }
+            PieDataSet dataSet = new PieDataSet(entries, "");
+            dataSet.setColors(colors);
+            dataSet.setValueTextColor(Color.WHITE);
+            dataSet.setValueTextSize(11f);
+            PieData pieData = new PieData(dataSet);
+            pieData.setValueFormatter(new ValueFormatter() {
+                @Override
+                public String getFormattedValue(float value) {
+                    return String.format(Locale.getDefault(), "%.0f%%", value);
+                }
+            });
+            pieChart.setData(pieData);
+            pieChart.setUsePercentValues(true);
+            pieChart.setDrawHoleEnabled(true);
+            pieChart.setHoleRadius(50f);
+            pieChart.setHoleColor(Color.WHITE);
+            pieChart.getDescription().setEnabled(false);
+            pieChart.getLegend().setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
+            pieChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
+            pieChart.getLegend().setOrientation(Legend.LegendOrientation.HORIZONTAL);
+            pieChart.getLegend().setWordWrapEnabled(true);
+            pieChart.setVisibility(View.VISIBLE);
+            pieChart.invalidate();
+        } catch (Exception e) {
+            pieChart.setVisibility(View.GONE);
+            e.printStackTrace();
+        }
+    }
+
+    private void updateEmptyState() {
+        if (tvEmptyState != null) {
+            tvEmptyState.setVisibility(allExpenses.isEmpty() ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void setupSwipeToDelete() {
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            @Override
+            public boolean onMove(@androidx.annotation.NonNull RecyclerView recyclerView,
+                                  @androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder,
+                                  @androidx.annotation.NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                if (position >= 0 && position < recentExpenses.size()) {
+                    Expense expense = recentExpenses.get(position);
+                    showDeleteDialog(expense);
+                }
+                adapter.notifyItemChanged(viewHolder.getAdapterPosition());
+            }
+
+            @Override
+            public void onChildDraw(@androidx.annotation.NonNull Canvas c,
+                                    @androidx.annotation.NonNull RecyclerView recyclerView,
+                                    @androidx.annotation.NonNull RecyclerView.ViewHolder viewHolder,
+                                    float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                View itemView = viewHolder.itemView;
+                ColorDrawable background = new ColorDrawable(Color.parseColor("#F44336"));
+                background.setBounds(itemView.getRight() + (int) dX, itemView.getTop(),
+                        itemView.getRight(), itemView.getBottom());
+                background.draw(c);
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+            }
+        });
+        itemTouchHelper.attachToRecyclerView(expensesRecyclerView);
     }
 }

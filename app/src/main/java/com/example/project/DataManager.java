@@ -14,6 +14,7 @@ public class DataManager {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_EXPENSES = "expenses";
     private static final String KEY_CATEGORIES = "categories";
+    private static final String KEY_BUDGET = "monthly_budget";
     private SharedPreferences sharedPreferences;
     public DataManager(Context context) {
         sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -116,6 +117,14 @@ public class DataManager {
         categories.remove(category);
         saveCategories(categories);
     }
+    public void saveBudget(double budget) {
+        sharedPreferences.edit().putFloat(KEY_BUDGET, (float) budget).apply();
+    }
+
+    public double loadBudget() {
+        return sharedPreferences.getFloat(KEY_BUDGET, 0.0f);
+    }
+
     public void clearAllData() {
         sharedPreferences.edit().clear().apply();
     }

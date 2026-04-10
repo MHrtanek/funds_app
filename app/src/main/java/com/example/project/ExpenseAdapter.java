@@ -3,6 +3,8 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +12,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -58,6 +61,7 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
         });
         holder.itemView.setOnLongClickListener(v -> {
             if (listener != null) {
+                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                 listener.onExpenseLongClick(expense);
                 return true;
             }
@@ -79,13 +83,70 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.ViewHold
         }
         public void bind(Expense expense) {
             tvAmount.setText(String.format("%.2f €", expense.getAmount()));
+
+            // Farba sumy podľa výšky výdavku
+            double amount = expense.getAmount();
+            if (amount >= 100) {
+                tvAmount.setTextColor(Color.parseColor("#F44336"));
+            } else if (amount >= 30) {
+                tvAmount.setTextColor(Color.parseColor("#FF9800"));
+            } else {
+                tvAmount.setTextColor(Color.parseColor("#4CAF50"));
+            }
+
             tvDescription.setText(expense.getDescription());
             tvCategory.setText(expense.getCategory());
+
+            float density = itemView.getResources().getDisplayMetrics().density;
+
+            // Zaokrúhlené rohy karty + tieň
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setColor(Color.WHITE);
+            cardBg.setStroke(1, Color.parseColor("#DDDDDD"));
+            cardBg.setCornerRadius(16 * density);
+            itemView.setBackground(cardBg);
+            itemView.setElevation(8f);
+            itemView.setTranslationZ(4f);
+
+            // Pill-tvar badge pre kategóriu
             int categoryColor = categoryColors.getOrDefault(expense.getCategory(), Color.parseColor("#607D8B"));
-            tvCategory.setBackgroundColor(categoryColor);
+            GradientDrawable badgeBg = new GradientDrawable();
+            badgeBg.setColor(categoryColor);
+            badgeBg.setCornerRadius(50 * density);
+            tvCategory.setBackground(badgeBg);
             tvCategory.setTextColor(Color.WHITE);
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-            tvDate.setText(sdf.format(expense.getDate()));
+
+            // Dátum: "Dnes" / "Včera" / formát
+            Calendar expenseCal = Calendar.getInstance();
+            expenseCal.setTime(expense.getDate());
+            expenseCal.set(Calendar.HOUR_OF_DAY, 0);
+            expenseCal.set(Calendar.MINUTE, 0);
+            expenseCal.set(Calendar.SECOND, 0);
+            expenseCal.set(Calendar.MILLISECOND, 0);
+
+            Calendar today = Calendar.getInstance();
+            today.set(Calendar.HOUR_OF_DAY, 0);
+            today.set(Calendar.MINUTE, 0);
+            today.set(Calendar.SECOND, 0);
+            today.set(Calendar.MILLISECOND, 0);
+
+            Calendar yesterday = Calendar.getInstance();
+            yesterday.set(Calendar.HOUR_OF_DAY, 0);
+            yesterday.set(Calendar.MINUTE, 0);
+            yesterday.set(Calendar.SECOND, 0);
+            yesterday.set(Calendar.MILLISECOND, 0);
+            yesterday.add(Calendar.DAY_OF_MONTH, -1);
+
+            String dateText;
+            if (expenseCal.equals(today)) {
+                dateText = "Dnes";
+            } else if (expenseCal.equals(yesterday)) {
+                dateText = "Včera";
+            } else {
+                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                dateText = sdf.format(expense.getDate());
+            }
+            tvDate.setText(dateText);
         }
     }
 }

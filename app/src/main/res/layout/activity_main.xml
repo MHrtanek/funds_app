@@ -102,13 +102,39 @@
 
     </LinearLayout>
 
-    <!-- Chart -->
+    <!-- Line Chart -->
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/expenseChart"
         android:layout_width="0dp"
         android:layout_height="300dp"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/filterButtonsLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="0.9" />
+
+    <!-- Prázdny stav grafu -->
+    <TextView
+        android:id="@+id/tvChartEmpty"
+        android:layout_width="0dp"
+        android:layout_height="200dp"
+        android:text="Zatiaľ žiadne výdavky 📊"
+        android:textColor="#9E9E9E"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/filterButtonsLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="0.9" />
+
+    <!-- Pie Chart - rozloženie výdavkov podľa kategórií -->
+    <com.github.mikephil.charting.charts.PieChart
+        android:id="@+id/pieChart"
+        android:layout_width="0dp"
+        android:layout_height="250dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/expenseChart"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintWidth_percent="0.9" />
@@ -120,11 +146,12 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/expenseChart"
+        app:layout_constraintTop_toBottomOf="@id/pieChart"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintWidth_percent="0.9">
 
+        <!-- "Tento mesiac" karta s budget tlačidlom a statusom -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -134,12 +161,35 @@
             android:padding="12dp"
             android:layout_marginEnd="4dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Tento mesiac"
-                android:textSize="12sp"
-                android:textColor="#000000" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tento mesiac"
+                    android:textSize="12sp"
+                    android:textColor="#000000" />
+
+                <Button
+                    android:id="@+id/btnSetBudget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Limit"
+                    android:textSize="10sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    style="@style/Widget.Material3.Button.OutlinedButton.ViewMore" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/monthlyTotalTextView"
@@ -149,6 +199,16 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#4CAF50" />
+
+            <TextView
+                android:id="@+id/tvBudgetStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:visibility="gone" />
 
         </LinearLayout>
 
@@ -232,7 +292,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Zmena"
+                android:text="vs. minulý mesiac"
                 android:textSize="12sp"
                 android:textColor="#000000" />
 
@@ -275,6 +335,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintWidth_percent="0.9"/>
+
+    <!-- Empty state message -->
+    <TextView
+        android:id="@+id/tvEmptyState"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Žiadne výdavky. Pridajte prvý výdavok! 💸"
+        android:textSize="16sp"
+        android:textColor="#999999"
+        android:gravity="center"
+        android:padding="24dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/recentExpensesTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="0.9" />
 
     <!-- BTN for more view - now below the RecyclerView -->
     <Button
